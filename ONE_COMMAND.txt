@@ -1,0 +1,53 @@
+═══════════════════════════════════════════════════════════
+   CAFÉ COSTING APP - ONE COMMAND TO RUN EVERYTHING
+═══════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  STEP 1: Make sure Docker Desktop is running           │
+│                                                         │
+│  STEP 2: Open terminal in this folder                  │
+│                                                         │
+│  STEP 3: Run this command:                             │
+│                                                         │
+│         ./start.sh                                      │
+│                                                         │
+│  STEP 4: Open browser at http://localhost:3000         │
+│                                                         │
+│  THAT'S IT! ✓                                          │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════
+
+What the command does:
+  ✓ Creates environment files automatically
+  ✓ Builds all Docker containers
+  ✓ Starts MongoDB database
+  ✓ Starts backend API
+  ✓ Starts frontend React app
+  ✓ Shows you where to access everything
+
+═══════════════════════════════════════════════════════════
+
+Access Points:
+  → Frontend:      http://localhost:3000
+  → Backend API:   http://localhost:5000/api
+  → Mongo Express: http://localhost:8081
+
+═══════════════════════════════════════════════════════════
+
+To Stop:
+  1. Press Ctrl+C in terminal
+  2. Run: docker-compose down
+
+═══════════════════════════════════════════════════════════
+
+For more help:
+  - Read START_HERE.md
+  - Read HOW_TO_RUN.md
+  - Read QUICKSTART.md
+
+═══════════════════════════════════════════════════════════
+
+
