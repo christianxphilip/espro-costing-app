@@ -22,6 +22,6 @@ npx wrangler@4 secret put WORKER_API_TOKEN
 
 For `RENDER_API_ORIGIN`, enter the HTTPS Render service origin, such as `https://espro-costing-api.onrender.com`. For `WORKER_API_TOKEN`, enter the same value configured in Render.
 
-In the Worker's Access tab, require sign-in on production URLs and add an Allow policy for the intended users. Then change `workers_dev` to `true` in `frontend/wrangler.jsonc` and redeploy to enable the default Workers hostname. Preview URLs stay disabled.
+Generate a strong shared password and store the Base64 encoding of `username:password` in the Worker secret `APP_BASIC_AUTH`. The Worker returns HTTP 503 until this secret is set. Base64 is an encoding, so protect the encoded value as you would the password.
 
-Verify that a signed-out browser is redirected to Access, that the signed-in app can load its costing records, and that requests to the direct Render data endpoints without the Worker token return HTTP 401.
+Verify that signed-out requests to the app and API return HTTP 401, that the signed-in app can load its costing records, and that requests to the direct Render data endpoints without the Worker token return HTTP 401.
