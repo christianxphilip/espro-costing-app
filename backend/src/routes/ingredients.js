@@ -2,7 +2,16 @@ const express = require('express');
 const router = express.Router();
 const Ingredient = require('../models/Ingredient');
 const Item = require('../models/Item');
-const { fetchRetailerQuote, normalizeSource } = require('../services/retailerPricing');
+const { fetchRetailerQuote, normalizeSource, searchRetailerProducts } = require('../services/retailerPricing');
+
+router.post('/retailer-search', async (req, res, next) => {
+  try {
+    const data = await searchRetailerProducts(req.body.query);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.post('/retailer-quote', async (req, res, next) => {
   try {

@@ -61,9 +61,7 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
-      retailerSource: name === 'unit' && prev.retailerSource
-        ? { ...prev.retailerSource, pricedQuantity: '' }
-        : prev.retailerSource,
+      retailerSource: name === 'unit' && value !== prev.unit ? null : prev.retailerSource,
     }));
   };
   
@@ -301,10 +299,11 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
           
           {!formData.isPrep && (
             <RetailerPrice
+              name={formData.name}
               source={formData.retailerSource}
               unit={formData.unit}
-              onChange={(retailerSource) => setFormData(prev => ({ ...prev, retailerSource }))}
-              onUsePrice={(costPerUnit) => setFormData(prev => ({ ...prev, costPerUnit }))}
+              onRemoveSource={() => setFormData(prev => ({ ...prev, retailerSource: null }))}
+              onUsePrice={(costPerUnit, retailerSource) => setFormData(prev => ({ ...prev, costPerUnit, retailerSource }))}
             />
           )}
 
