@@ -1,28 +1,13 @@
 import React, { useState } from 'react';
 import { ingredientsAPI } from '../services/api';
 import { formatPeso } from '../utils/formatNumber';
+import { rankProducts, suggestedQuantity } from '../utils/retailerMatch';
 
 const stores = { landers: 'Landers', snr: 'S&R Nuvali', sm: 'SM Supermarket Santa Rosa' };
 const santaRosaCatalog = 'https://smmarkets.ph/';
-const measures = {
-  g: ['weight', 1], kg: ['weight', 1000],
-  ml: ['volume', 1], l: ['volume', 1000],
-  pc: ['count', 1], pcs: ['count', 1],
-};
-
-function suggestedQuantity(product, unit) {
-  const base = measures[unit.trim().toLowerCase()];
-  const rate = product.priceUnit.match(/^\/\s*(kg|g|ml|l|pcs?)$/i);
-  const pack = (product.pack || product.name).match(/(?:^|\s)(\d+(?:\.\d+)?)\s*(kg|g|ml|l|pcs?)$/i);
-  const measure = measures[(rate?.[1] || pack?.[2] || '').toLowerCase()];
-  if (!base || !measure || base[0] !== measure[0]) return '';
-  if (!rate && /[×x*]|\b(?:pack|packs|set)\b/i.test(product.pack || product.name)) return '';
-  return (rate ? 1 : Number(pack[1])) * measure[1] / base[1];
-}
-
-export default function RetailerPrice({ name, source, unit, tag, onChangeTag, onUsePrice, onRemoveSource }) {
+export default function RetailerPrice({ name, source, unit, tag, onChangeTag, onUsePrice, onRemoveSource, initialResults, showMatch = false }) {
   const [query, setQuery] = useState(null);
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState(undefined);
   const [selected, setSelected] = useState(null);
   const [quantity, setQuantity] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -100,7 +85,7 @@ export default function RetailerPrice({ name, source, unit, tag, onChangeTag, on
           <button type="button" onClick={onRemoveSource} className="ml-3 text-gray-600 underline">Remove link</button>
         </p>
       )}
-      {results?.map(({ retailer, products, unavailable }) => (
+      {(results === undefined ? initialResults : results)?.map(({ retailer, products, unavailable }) => (
         <div key={retailer}>
           <h4 className="text-sm font-semibold">{stores[retailer]}</h4>
           {products.length === 0 && (
@@ -111,7 +96,7 @@ export default function RetailerPrice({ name, source, unit, tag, onChangeTag, on
               )}
             </p>
           )}
-          {products.map(product => (
+          {(showMatch ? rankProducts(products, searchText) : products).map(product => (
             <button
               key={product.productUrl}
               type="button"
@@ -120,7 +105,7 @@ export default function RetailerPrice({ name, source, unit, tag, onChangeTag, on
               onClick={() => { setSelected(product); setQuantity(null); }}
             >
               <span>{product.name}{product.pack && <span className="block text-xs text-gray-500">{product.pack}</span>}</span>
-              <span className="whitespace-nowrap">{formatPeso(product.price)}{product.priceUnit || ' / pack'}</span>
+              <span className="whitespace-nowrap">{formatPeso(product.price)}{product.priceUnit || ' / pack'}{showMatch && <span className="block text-xs text-gray-500">{product.score}% name match</span>}</span>
             </button>
           ))}
         </div>
