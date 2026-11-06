@@ -71,6 +71,7 @@ export const expensesAPI = {
 
 // Ingredients API
 export const ingredientsAPI = {
+  getRetailerQuote: (data) => api.post('/ingredients/retailer-quote', data),
   getAll: (params) => api.get('/ingredients', { params }),
   getById: (id) => api.get(`/ingredients/${id}`),
   create: (data) => api.post('/ingredients', data),

@@ -28,6 +28,12 @@ const prepIngredientSchema = new mongoose.Schema({
   },
 });
 
+const retailerSourceSchema = new mongoose.Schema({
+  retailer: { type: String, enum: ['landers', 'snr', 'sm'], required: true },
+  productUrl: { type: String, required: true },
+  pricedQuantity: { type: Number, required: true, min: 0 },
+}, { _id: false });
+
 const ingredientSchema = new mongoose.Schema(
   {
     name: {
@@ -49,6 +55,10 @@ const ingredientSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+    retailerSource: {
+      type: retailerSourceSchema,
+      default: null,
     },
     supplier: {
       type: String,

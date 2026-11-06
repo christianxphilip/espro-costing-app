@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ingredientsAPI, aiAPI } from '../services/api';
 import { formatPeso } from '../utils/formatNumber';
+import RetailerPrice from './RetailerPrice';
 
 function IngredientForm({ ingredient, onSave, onCancel }) {
   const [formData, setFormData] = useState({
@@ -9,6 +10,7 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
     category: '',
     unit: '',
     costPerUnit: 0,
+    retailerSource: null,
     supplier: '',
     notes: '',
     isPrep: false,
@@ -32,6 +34,7 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
         category: ingredient.category || '',
         unit: ingredient.unit || '',
         costPerUnit: ingredient.costPerUnit || 0,
+        retailerSource: ingredient.retailerSource || null,
         supplier: ingredient.supplier || '',
         notes: ingredient.notes || '',
         isPrep: ingredient.isPrep || false,
@@ -55,9 +58,12 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+      retailerSource: name === 'unit' && prev.retailerSource
+        ? { ...prev.retailerSource, pricedQuantity: '' }
+        : prev.retailerSource,
     }));
   };
   
@@ -268,7 +274,7 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
                   value={formData.costPerUnit}
                   onChange={handleChange}
                   className="input"
-                  step="0.0001"
+                  step="any"
                   min="0"
                   required
                 />
@@ -293,6 +299,15 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
             )}
           </div>
           
+          {!formData.isPrep && (
+            <RetailerPrice
+              source={formData.retailerSource}
+              unit={formData.unit}
+              onChange={(retailerSource) => setFormData(prev => ({ ...prev, retailerSource }))}
+              onUsePrice={(costPerUnit) => setFormData(prev => ({ ...prev, costPerUnit }))}
+            />
+          )}
+
           {formData.isPrep && (
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
               <div className="flex justify-between items-center">

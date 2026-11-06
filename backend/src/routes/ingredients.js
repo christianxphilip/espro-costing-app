@@ -2,6 +2,17 @@ const express = require('express');
 const router = express.Router();
 const Ingredient = require('../models/Ingredient');
 const Item = require('../models/Item');
+const { fetchRetailerQuote, normalizeSource } = require('../services/retailerPricing');
+
+router.post('/retailer-quote', async (req, res, next) => {
+  try {
+    const { retailer, productUrl } = req.body;
+    const data = await fetchRetailerQuote(retailer, productUrl);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // @route   GET /api/ingredients
 // @desc    Get all ingredients
@@ -181,6 +192,7 @@ router.post('/', async (req, res, next) => {
       category,
       unit,
       costPerUnit: calculatedCostPerUnit,
+      retailerSource: isPrep ? null : normalizeSource(req.body.retailerSource),
       supplier: supplier || '',
       notes: notes || '',
       isPrep: !!isPrep,
@@ -227,6 +239,7 @@ router.put('/:id', async (req, res, next) => {
     
     // Recalculate cost if it is a prep ingredient
     if (ingredient.isPrep) {
+      ingredient.retailerSource = null;
       const outputVal = ingredient.totalOutput;
       const totalCost = ingredient.prepIngredients.reduce((sum, ing) => {
         return sum + (Number(ing.quantity || 0) * Number(ing.costPerUnit || 0));
@@ -234,6 +247,9 @@ router.put('/:id', async (req, res, next) => {
       ingredient.costPerUnit = outputVal > 0 ? (totalCost / outputVal) : 0;
     } else {
       if (costPerUnit !== undefined) ingredient.costPerUnit = costPerUnit;
+      if (req.body.retailerSource !== undefined) {
+        ingredient.retailerSource = normalizeSource(req.body.retailerSource);
+      }
       // If converting from prep to standard, clear prep fields
       if (isPrep === false) {
         ingredient.prepIngredients = [];
