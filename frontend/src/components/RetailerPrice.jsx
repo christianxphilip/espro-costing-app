@@ -3,7 +3,7 @@ import { ingredientsAPI } from '../services/api';
 import { formatPeso } from '../utils/formatNumber';
 
 const stores = { landers: 'Landers', snr: 'S&R Nuvali', sm: 'SM Supermarket Santa Rosa' };
-const santaRosaCatalog = 'https://www.foodpanda.ph/shop/hce5/sm-supermarket-sta-rosa';
+const santaRosaCatalog = 'https://smmarkets.ph/';
 const measures = {
   g: ['weight', 1], kg: ['weight', 1000],
   ml: ['volume', 1], l: ['volume', 1000],
@@ -20,7 +20,7 @@ function suggestedQuantity(product, unit) {
   return (rate ? 1 : Number(pack[1])) * measure[1] / base[1];
 }
 
-export default function RetailerPrice({ name, source, unit, onUsePrice, onRemoveSource }) {
+export default function RetailerPrice({ name, source, unit, tag, onChangeTag, onUsePrice, onRemoveSource }) {
   const [query, setQuery] = useState(null);
   const [results, setResults] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -38,7 +38,7 @@ export default function RetailerPrice({ name, source, unit, onUsePrice, onRemove
     setSelected(null);
     setError('');
     try {
-      const { data } = await ingredientsAPI.searchRetailers(searchText);
+      const { data } = await ingredientsAPI.searchRetailers(searchText, tag);
       setResults(data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not search the retailers. Try again or enter the cost manually.');
@@ -75,7 +75,24 @@ export default function RetailerPrice({ name, source, unit, onUsePrice, onRemove
             {loading ? 'Searching…' : 'Sync retailer prices'}
           </button>
         </div>
-        <p className="mt-1 text-xs text-gray-500">Searches Landers and S&R Nuvali. For SM Supermarket Santa Rosa, <a href={santaRosaCatalog} target="_blank" rel="noreferrer" className="text-blue-700 underline">check the branch catalog</a> and enter the cost manually above.</p>
+        <p className="mt-1 text-xs text-gray-500">Searches Landers, S&R Nuvali and SM Supermarket Santa Rosa. You can also enter the cost manually above.</p>
+      </div>
+      <div>
+        <label className="label" htmlFor="ingredient-retailer-tag">Search tag (optional)</label>
+        <input
+          id="ingredient-retailer-tag"
+          className="input"
+          value={tag}
+          maxLength={60}
+          placeholder="e.g. pure -shampoo -ham"
+          onChange={(event) => {
+            onChangeTag(event.target.value);
+            setResults(null);
+            setSelected(null);
+            setError('');
+          }}
+        />
+        <p className="mt-1 text-xs text-gray-500">Require words in the product name or put a minus before words to exclude, like -shampoo or -ham.</p>
       </div>
       {source && (
         <p className="text-sm">
@@ -88,7 +105,10 @@ export default function RetailerPrice({ name, source, unit, onUsePrice, onRemove
           <h4 className="text-sm font-semibold">{stores[retailer]}</h4>
           {products.length === 0 && (
             <p className="text-sm text-gray-500">
-              {retailer === 'sm' ? 'This branch’s prices are available for manual entry.' : unavailable ? 'Search temporarily unavailable.' : 'No matching products.'}
+              {unavailable ? 'Search temporarily unavailable.' : 'No matching products.'}
+              {retailer === 'sm' && unavailable && (
+                <> <a href={santaRosaCatalog} target="_blank" rel="noreferrer" className="text-blue-700 underline">Open SM Markets</a> to check the branch price manually.</>
+              )}
             </p>
           )}
           {products.map(product => (

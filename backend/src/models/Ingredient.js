@@ -60,6 +60,12 @@ const ingredientSchema = new mongoose.Schema(
       type: retailerSourceSchema,
       default: null,
     },
+    retailerSearchTag: {
+      type: String,
+      trim: true,
+      maxlength: 60,
+      default: '',
+    },
     supplier: {
       type: String,
       default: '',

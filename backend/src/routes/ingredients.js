@@ -6,7 +6,7 @@ const { fetchRetailerQuote, normalizeSource, searchRetailerProducts } = require(
 
 router.post('/retailer-search', async (req, res, next) => {
   try {
-    const data = await searchRetailerProducts(req.body.query);
+    const data = await searchRetailerProducts(req.body.query, req.body.tag);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -202,6 +202,7 @@ router.post('/', async (req, res, next) => {
       unit,
       costPerUnit: calculatedCostPerUnit,
       retailerSource: isPrep ? null : normalizeSource(req.body.retailerSource),
+      retailerSearchTag: isPrep ? '' : req.body.retailerSearchTag,
       supplier: supplier || '',
       notes: notes || '',
       isPrep: !!isPrep,
@@ -249,6 +250,7 @@ router.put('/:id', async (req, res, next) => {
     // Recalculate cost if it is a prep ingredient
     if (ingredient.isPrep) {
       ingredient.retailerSource = null;
+      ingredient.retailerSearchTag = '';
       const outputVal = ingredient.totalOutput;
       const totalCost = ingredient.prepIngredients.reduce((sum, ing) => {
         return sum + (Number(ing.quantity || 0) * Number(ing.costPerUnit || 0));
@@ -258,6 +260,9 @@ router.put('/:id', async (req, res, next) => {
       if (costPerUnit !== undefined) ingredient.costPerUnit = costPerUnit;
       if (req.body.retailerSource !== undefined) {
         ingredient.retailerSource = normalizeSource(req.body.retailerSource);
+      }
+      if (req.body.retailerSearchTag !== undefined) {
+        ingredient.retailerSearchTag = req.body.retailerSearchTag;
       }
       // If converting from prep to standard, clear prep fields
       if (isPrep === false) {

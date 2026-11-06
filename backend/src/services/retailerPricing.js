@@ -4,6 +4,7 @@ const pickarooPaths = { snr: 'sr', sm: 'sm-markets' };
 const pickarooBranches = {
   snr: { slug: 'sr-nuvali', name: 'S&R Nuvali' },
 };
+const smStoreCode = 'sm_supermarket_sta_rosa';
 
 function invalidSource(message) {
   return Object.assign(new Error(message), { statusCode: 400 });
@@ -32,6 +33,10 @@ function parseProductUrl(retailer, productUrl) {
       }
       return { productUrl: productUrl.href, fetchUrl: `https://www.landers.ph/rest/V1/products/${sku}` };
     }
+  }
+  if (retailer === 'sm' && url.hostname === 'smmarkets.ph') {
+    const product = url.pathname.match(/^\/([\w-]+)(?:\.html)?$/);
+    if (product) return { productUrl: `https://smmarkets.ph${url.pathname}`, smProductKey: product[1] };
   }
   const shop = Object.hasOwn(pickarooPaths, retailer) && pickarooPaths[retailer];
   if (shop && ['pickaroo.com', 'www.pickaroo.com'].includes(url.hostname)) {
@@ -62,6 +67,11 @@ function normalizeSource(source) {
 async function fetchRetailerQuote(retailer, productUrl) {
   const listing = parseProductUrl(retailer, productUrl);
   try {
+    if (listing.smProductKey) {
+      const [product] = await searchSm(listing.smProductKey, true);
+      if (!product) throw new Error('Price unavailable');
+      return { price: product.price, priceUnit: '', productUrl: listing.productUrl };
+    }
     const response = await fetch(listing.fetchUrl, {
       redirect: 'error',
       signal: AbortSignal.timeout(8000),
@@ -94,7 +104,48 @@ function cleanText(text = '') {
   return text.replace(/&([\w#]+);/g, (match, entity) => entities[entity] || match).trim();
 }
 
-async function searchStore(retailer, query) {
+function productWords(text) {
+  return text.toLowerCase().normalize('NFKC').match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+async function searchSm(term, exactProduct = false) {
+  const url = new URL('https://smmarkets.ph/graphql');
+  const value = JSON.stringify(term);
+  const filter = exactProduct ? `url_key:{eq:${value}}` : `name:{match:${value}}`;
+  url.searchParams.set('query', `{storeConfig{code} products(filter:{${filter}},pageSize:5){items{sku name url_key url_suffix price_range{minimum_price{final_price{value currency}}}}}}`);
+  const response = await fetch(url, {
+    headers: { Store: smStoreCode, Accept: 'application/json' },
+    redirect: 'error',
+    signal: AbortSignal.timeout(12000),
+    size: 1024 * 1024,
+  });
+  if (!response.ok) throw new Error('SM Markets catalog unavailable');
+  const { data } = await response.json();
+  if (data?.storeConfig?.code !== smStoreCode || !Array.isArray(data.products?.items)) {
+    throw new Error('SM Markets did not confirm the Santa Rosa catalog');
+  }
+  return data.products.items.flatMap(item => {
+    const amount = item.price_range?.minimum_price?.final_price;
+    const price = Number(amount?.value);
+    if (!/^\d+$/.test(item.sku || '') || !/^[\w-]+$/.test(item.url_key || '')
+      || amount?.currency !== 'PHP' || !Number.isFinite(price) || price <= 0) return [];
+    return [{
+      retailer: 'sm',
+      branch: 'SM Supermarket Santa Rosa',
+      name: item.name,
+      pack: '',
+      price,
+      priceUnit: '',
+      productUrl: `https://smmarkets.ph/${item.url_key}${item.url_suffix === '.html' ? '.html' : ''}`,
+    }];
+  });
+}
+
+async function searchStore(retailer, query, matchesProduct) {
+  if (retailer === 'sm') {
+    const products = await searchSm(query);
+    return products.filter(item => matchesProduct(item.name)).slice(0, 5);
+  }
   const branch = pickarooBranches[retailer];
   const url = new URL(branch
     ? `https://pickaroo.com/${pickarooPaths[retailer]}/products/${branch.slug}/search`
@@ -110,7 +161,7 @@ async function searchStore(retailer, query) {
       url.searchParams.set(`${key}[value]`, `%${term}%`);
       url.searchParams.set(`${key}[condition_type]`, 'like');
     }
-    url.searchParams.set('searchCriteria[pageSize]', '8');
+    url.searchParams.set('searchCriteria[pageSize]', '20');
   }
 
   const response = await fetch(url, {
@@ -129,7 +180,7 @@ async function searchStore(retailer, query) {
       price: Number(item.extension_attributes?.final_price ?? item.price),
       priceUnit: '',
       productUrl: `https://www.landers.ph/?sku=${item.sku}`,
-    })).filter(item => Number.isFinite(item.price) && item.price > 0).slice(0, 5);
+    })).filter(item => Number.isFinite(item.price) && item.price > 0 && matchesProduct(item.name)).slice(0, 5);
   }
 
   const html = await response.text();
@@ -139,7 +190,7 @@ async function searchStore(retailer, query) {
     const name = cleanText(card.match(/<span class="name">([^<]+)<\/span>/)?.[1]);
     const priceMatch = card.match(/<span class="price-new">\s*(?:&#8369;|₱)\s*([\d,.]+)\s*<span class="product-unit">([^<]*)<\/span>/);
     const price = Number(priceMatch?.[1].replaceAll(',', ''));
-    if (!productPath || !name || !Number.isFinite(price) || price <= 0) return [];
+    if (!productPath || !name || !Number.isFinite(price) || price <= 0 || !matchesProduct(name)) return [];
     const { productUrl } = parseProductUrl(retailer, new URL(productPath, url).href);
     return [{
       retailer,
@@ -153,15 +204,26 @@ async function searchStore(retailer, query) {
   }).slice(0, 5);
 }
 
-async function searchRetailerProducts(value) {
+async function searchRetailerProducts(value, tag = '') {
   const query = typeof value === 'string' ? value.trim() : '';
   if (query.length < 3 || query.length > 100) {
     throw invalidSource('Enter a product name between 3 and 100 characters.');
   }
+  if (typeof tag !== 'string' || tag.length > 60) {
+    throw invalidSource('The search tag must be 60 characters or fewer.');
+  }
+  const tagTerms = tag.trim().split(/\s+/);
+  const included = tagTerms.filter(term => !term.startsWith('-')).join(' ').trim();
+  const excluded = tagTerms.filter(term => term.startsWith('-')).flatMap(productWords);
+  const searchQuery = included ? `${included} ${query}` : query;
+  const required = tag.trim() ? productWords(searchQuery) : [];
+  const matchesProduct = (name) => {
+    const words = productWords(name);
+    return required.every(word => words.includes(word)) && !excluded.some(word => words.includes(word));
+  };
   return Promise.all(['landers', 'snr', 'sm'].map(async retailer => {
-    if (retailer === 'sm') return { retailer, products: [], unavailable: true };
     try {
-      return { retailer, products: await searchStore(retailer, query) };
+      return { retailer, products: await searchStore(retailer, searchQuery, matchesProduct) };
     } catch (error) {
       console.warn('Retailer search failed', retailer, error.name);
       return { retailer, products: [], unavailable: true };

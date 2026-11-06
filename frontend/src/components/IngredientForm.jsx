@@ -11,6 +11,7 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
     unit: '',
     costPerUnit: 0,
     retailerSource: null,
+    retailerSearchTag: '',
     supplier: '',
     notes: '',
     isPrep: false,
@@ -35,6 +36,7 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
         unit: ingredient.unit || '',
         costPerUnit: ingredient.costPerUnit || 0,
         retailerSource: ingredient.retailerSource || null,
+        retailerSearchTag: ingredient.retailerSearchTag || '',
         supplier: ingredient.supplier || '',
         notes: ingredient.notes || '',
         isPrep: ingredient.isPrep || false,
@@ -302,6 +304,8 @@ function IngredientForm({ ingredient, onSave, onCancel }) {
               name={formData.name}
               source={formData.retailerSource}
               unit={formData.unit}
+              tag={formData.retailerSearchTag}
+              onChangeTag={(retailerSearchTag) => setFormData(prev => ({ ...prev, retailerSearchTag }))}
               onRemoveSource={() => setFormData(prev => ({ ...prev, retailerSource: null }))}
               onUsePrice={(costPerUnit, retailerSource) => setFormData(prev => ({ ...prev, costPerUnit, retailerSource }))}
             />
