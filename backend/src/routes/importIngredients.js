@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { detectRecipeWorkbook } = require('../services/recipeImport');
 const Ingredient = require('../models/Ingredient');
+const { normalizeSource } = require('../services/retailerPricing');
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -86,11 +87,12 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
           unit = unitMappings[unit];
         }
         
+        const cost = row['Cost Per Unit'] ?? row['Cost'];
         const ingredient = {
           name: row['Name'] || row['Ingredient Name'] || `Ingredient ${index + 1}`,
           category: row['Category'] || 'General',
           unit: unit,
-          costPerUnit: parseFloat(row['Cost Per Unit'] || row['Cost'] || 0),
+          costPerUnit: cost == null || String(cost).trim() === '' ? null : parseFloat(cost),
           supplier: row['Supplier'] || '',
           notes: row['Notes'] || '',
           isActive: row['Status'] ? row['Status'].toLowerCase() === 'active' : true,
@@ -170,7 +172,11 @@ router.post('/save', async (req, res, next) => {
       throw new Error('No ingredients provided');
     }
 
-    const savedIngredients = await Ingredient.insertMany(ingredients);
+    const savedIngredients = await Ingredient.insertMany(ingredients.map(ingredient => ({
+      ...ingredient,
+      costPerUnit: ingredient.costPerUnit ?? 0,
+      retailerSource: normalizeSource(ingredient.retailerSource),
+    })));
 
     res.json({
       success: true,

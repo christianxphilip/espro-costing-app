@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import RecipeImport from '../components/RecipeImport';
+import IngredientImportPreview from '../components/IngredientImportPreview';
 import ImportUploader from '../components/ImportUploader';
 import { importAPI, expensesAPI, ingredientsAPI } from '../services/api';
 
@@ -251,6 +252,17 @@ function ImportPage() {
           onUpload={file => uploadWorkbook(file, importAPI.uploadIngredients, setParsedIngredients, 'ingredients')}
           onSave={handleSaveIngredients}
           parsedItems={parsedIngredients}
+          previewLabel="Ingredients"
+          saveDisabled={parsedIngredients.some(({ costPerUnit }) => costPerUnit !== null && (!Number.isFinite(costPerUnit) || costPerUnit < 0))}
+          renderPreview={loading => (
+            <IngredientImportPreview
+              ingredients={parsedIngredients}
+              disabled={loading}
+              onChange={(index, changes) => setParsedIngredients(rows => rows.map((row, i) => (
+                i === index ? { ...row, ...changes } : row
+              )))}
+            />
+          )}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-function ImportUploader({ onUpload, onSave, parsedItems = [] }) {
+function ImportUploader({ onUpload, onSave, parsedItems = [], previewLabel = 'Items', renderPreview, saveDisabled = false }) {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   
@@ -87,16 +87,17 @@ function ImportUploader({ onUpload, onSave, parsedItems = [] }) {
           className="card"
         >
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold">Parsed Items ({parsedItems.length})</h3>
+            <h3 className="text-lg font-bold">Parsed {previewLabel} ({parsedItems.length})</h3>
             <button
               onClick={handleSave}
-              disabled={loading}
+              disabled={loading || saveDisabled}
               className="btn btn-primary disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Save All to Database'}
             </button>
           </div>
           
+          {renderPreview ? renderPreview(loading) : (
           <div className="overflow-x-auto max-h-96">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
@@ -121,6 +122,7 @@ function ImportUploader({ onUpload, onSave, parsedItems = [] }) {
               </tbody>
             </table>
           </div>
+          )}
         </motion.div>
       )}
     </div>
