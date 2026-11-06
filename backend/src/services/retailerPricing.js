@@ -2,8 +2,7 @@ const fetch = require('node-fetch');
 
 const pickarooPaths = { snr: 'sr', sm: 'sm-markets' };
 const pickarooBranches = {
-  snr: { slug: 'sr-sucat', name: 'S&R Sucat' },
-  sm: { slug: 'sm-supermarket-megamall-b', name: 'SM Supermarket Megamall B' },
+  snr: { slug: 'sr-nuvali', name: 'S&R Nuvali' },
 };
 
 function invalidSource(message) {
@@ -160,6 +159,7 @@ async function searchRetailerProducts(value) {
     throw invalidSource('Enter a product name between 3 and 100 characters.');
   }
   return Promise.all(['landers', 'snr', 'sm'].map(async retailer => {
+    if (retailer === 'sm') return { retailer, products: [], unavailable: true };
     try {
       return { retailer, products: await searchStore(retailer, query) };
     } catch (error) {

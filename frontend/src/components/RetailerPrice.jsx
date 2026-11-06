@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { ingredientsAPI } from '../services/api';
 import { formatPeso } from '../utils/formatNumber';
 
-const stores = { landers: 'Landers', snr: 'S&R Sucat', sm: 'SM Supermarket Megamall B' };
+const stores = { landers: 'Landers', snr: 'S&R Nuvali', sm: 'SM Supermarket Santa Rosa' };
+const santaRosaCatalog = 'https://www.foodpanda.ph/shop/hce5/sm-supermarket-sta-rosa';
 const measures = {
   g: ['weight', 1], kg: ['weight', 1000],
   ml: ['volume', 1], l: ['volume', 1000],
@@ -74,18 +75,22 @@ export default function RetailerPrice({ name, source, unit, onUsePrice, onRemove
             {loading ? 'Searching…' : 'Sync retailer prices'}
           </button>
         </div>
-        <p className="mt-1 text-xs text-gray-500">Searches Landers, S&R Sucat and SM Supermarket Megamall B. You can also enter the cost manually above.</p>
+        <p className="mt-1 text-xs text-gray-500">Searches Landers and S&R Nuvali. For SM Supermarket Santa Rosa, <a href={santaRosaCatalog} target="_blank" rel="noreferrer" className="text-blue-700 underline">check the branch catalog</a> and enter the cost manually above.</p>
       </div>
       {source && (
         <p className="text-sm">
-          Linked product · <a href={source.productUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">{stores[source.retailer]}</a>
+          Linked product · <a href={source.productUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">View original listing</a>
           <button type="button" onClick={onRemoveSource} className="ml-3 text-gray-600 underline">Remove link</button>
         </p>
       )}
       {results?.map(({ retailer, products, unavailable }) => (
         <div key={retailer}>
           <h4 className="text-sm font-semibold">{stores[retailer]}</h4>
-          {products.length === 0 && <p className="text-sm text-gray-500">{unavailable ? 'Search temporarily unavailable.' : 'No matching products.'}</p>}
+          {products.length === 0 && (
+            <p className="text-sm text-gray-500">
+              {retailer === 'sm' ? 'This branch’s prices are available for manual entry.' : unavailable ? 'Search temporarily unavailable.' : 'No matching products.'}
+            </p>
+          )}
           {products.map(product => (
             <button
               key={product.productUrl}
