@@ -25,6 +25,11 @@ export const itemsAPI = {
 
 // Import/Export API
 export const importAPI = {
+  uploadRecipes: (formData) => api.post('/import/recipes/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  loadRecipeSheet: (url) => api.post('/import/recipes/sheet', { url }),
+  reviewRecipes: (action, draft) => api.post(`/import/recipes/${action}`, draft),
   upload: (formData) => api.post('/import/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),

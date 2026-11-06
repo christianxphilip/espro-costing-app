@@ -4,6 +4,7 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');
+const { detectRecipeWorkbook } = require('../services/recipeImport');
 const OperatingExpense = require('../models/OperatingExpense');
 
 // Configure multer for file upload
@@ -44,13 +45,21 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     }
 
     const filePath = req.file.path;
-    const workbook = XLSX.readFile(filePath);
+    let workbook;
+    try {
+      workbook = XLSX.readFile(filePath);
+    } finally {
+      fs.unlinkSync(filePath);
+    }
+
+    const recipes = detectRecipeWorkbook(workbook);
+    if (recipes) {
+      return res.json({ success: true, format: 'recipes', data: recipes });
+    }
+
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet);
-
-    // Clean up uploaded file
-    fs.unlinkSync(filePath);
 
     if (!data || data.length === 0) {
       res.status(400);

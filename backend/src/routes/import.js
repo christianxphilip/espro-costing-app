@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const XLSX = require('xlsx');
+const fetch = require('node-fetch');
 const path = require('path');
 const fs = require('fs');
 const Item = require('../models/Item');
+const { detectRecipeWorkbook, parseRecipeWorkbook, planRecipeImport, saveRecipeImport } = require('../services/recipeImport');
+const { recalculateItemExpenses } = require('./operatingExpenses');
 const { calculateAllCosts } = require('../services/costingService');
 
 // Configure multer for file upload
@@ -34,6 +37,78 @@ const upload = multer({
   },
 });
 
+const recipeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+router.post('/recipes/upload', recipeUpload.single('file'), (req, res) => {
+  try {
+    if (!req.file || !/\.(xlsx|xls|csv)$/i.test(req.file.originalname)) {
+      return res.status(400).json({ message: 'Upload an Excel or CSV recipe workbook.' });
+    }
+    res.json({ data: parseRecipeWorkbook(req.file.buffer) });
+  } catch (error) {
+    res.status(400).json({ message: error.statusCode ? error.message : 'Could not read the recipe workbook.' });
+  }
+});
+
+router.post('/recipes/sheet', async (req, res, next) => {
+  let sheet;
+  try {
+    sheet = new URL(req.body.url);
+  } catch {
+    return res.status(400).json({ message: 'Paste a Google Sheets link.' });
+  }
+  const match = sheet.pathname.match(/^\/spreadsheets\/d\/([\w-]+)(?:\/|$)/);
+  if (sheet.origin !== 'https://docs.google.com' || !match) {
+    return res.status(400).json({ message: 'Paste a Google Sheets link.' });
+  }
+
+  let exportUrl = new URL(`https://docs.google.com/spreadsheets/d/${match[1]}/export?format=xlsx`);
+  let buffer;
+  try {
+    const signal = AbortSignal.timeout(12000);
+    for (let hop = 0; hop < 4; hop++) {
+      const response = await fetch(exportUrl, { redirect: 'manual', size: 5 * 1024 * 1024, signal });
+      if (response.ok && response.headers.get('content-type')?.includes('spreadsheetml')) {
+        buffer = await response.buffer();
+        break;
+      }
+      const location = response.headers.get('location');
+      if (response.status < 300 || response.status >= 400 || !location) break;
+      const destination = new URL(location, exportUrl);
+      if (destination.protocol !== 'https:' || destination.port || destination.username || destination.password
+        || !destination.hostname.endsWith('.googleusercontent.com')) break;
+      exportUrl = destination;
+    }
+  } catch {
+    // A restricted sheet or unavailable export can still be uploaded as a file.
+  }
+  if (!buffer) {
+    return res.status(422).json({ message: 'Could not download this Google Sheet. Download it as Excel and upload the file here.' });
+  }
+  try {
+    res.json({ data: parseRecipeWorkbook(buffer) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+for (const action of ['preview', 'save']) {
+  router.post(`/recipes/${action}`, async (req, res, next) => {
+    try {
+      const { summary, writes } = await planRecipeImport(req.body.recipes, req.body.additions);
+      if (action === 'save') {
+        if (JSON.stringify(req.body.summary) !== JSON.stringify(summary)) {
+          return res.status(409).json({ message: 'The costing changed. Preview the recipes again before saving.' });
+        }
+        await saveRecipeImport(writes);
+        await recalculateItemExpenses();
+      }
+      res.json({ data: summary });
+    } catch (error) {
+      next(error);
+    }
+  });
+}
+
 // @route   POST /api/import/upload
 // @desc    Upload and parse Excel/CSV file
 // @access  Public
@@ -45,13 +120,21 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     }
 
     const filePath = req.file.path;
-    const workbook = XLSX.readFile(filePath);
+    let workbook;
+    try {
+      workbook = XLSX.readFile(filePath);
+    } finally {
+      fs.unlinkSync(filePath);
+    }
+
+    const recipes = detectRecipeWorkbook(workbook);
+    if (recipes) {
+      return res.json({ success: true, format: 'recipes', data: recipes });
+    }
+
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet);
-
-    // Clean up uploaded file
-    fs.unlinkSync(filePath);
 
     if (!data || data.length === 0) {
       res.status(400);

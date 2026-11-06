@@ -10,6 +10,7 @@ function ImportUploader({ onUpload, onSave, parsedItems = [] }) {
     if (selectedFile) {
       setFile(selectedFile);
     }
+    e.target.value = '';
   };
   
   const handleUpload = async () => {
@@ -42,10 +43,19 @@ function ImportUploader({ onUpload, onSave, parsedItems = [] }) {
       <div className="card">
         <h3 className="text-lg font-bold mb-4">Upload Excel/CSV File</h3>
         
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+        <div
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center"
+          onDragOver={event => event.preventDefault()}
+          onDrop={event => {
+            event.preventDefault();
+            const droppedFile = event.dataTransfer.files[0];
+            if (!loading && droppedFile) setFile(droppedFile);
+          }}
+        >
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
+            disabled={loading}
             onChange={handleFileChange}
             className="hidden"
             id="file-upload"
